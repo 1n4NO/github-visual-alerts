@@ -1,97 +1,67 @@
--- GitHub Visual Alerts for Hammerspoon
--- Aeroplane (✈️) for Commits
--- Rocket (🚀) for Pull Requests
--- Parachute (🪂) for CI Failures
+-- GitHub Visual Alerts via URL Scheme
+-- This bypasses the buggy hs.httpserver
 
-alerts = {} -- Make global to prevent GC
-hs.ipc.cliInstall() -- Ensure CLI is available
-
--- --- Configuration ---
-local PORT = 9999
-local ANIMATION_DURATION = 5 -- seconds
-local FPS = 60
-
--- --- Animation Engine ---
+_G.github_alerts = _G.github_alerts or {}
+local alerts = _G.github_alerts
 
 function alerts.animate(emoji, text, startPos, endPos, duration)
-    local canvas = hs.canvas.new({x = 0, y = 0, w = 0, h = 0})
     local screen = hs.screen.mainScreen():frame()
-    
-    canvas:frame(screen)
-    
-    local element = {
+    local canvas = hs.canvas.new(screen)
+    canvas:insert({
         type = "text",
-        text = emoji .. (text and (" " .. text) or ""),
-        textSize = 60,
-        textColor = {white = 1},
+        text = emoji .. " " .. (text or ""),
+        textSize = 80,
+        textColor = {red = 1, green = 1, blue = 1, alpha = 1},
         textAlignment = "center",
-        frame = {x = startPos.x, y = startPos.y, w = 600, h = 100}
-    }
-    
-    canvas:insert(element)
+        frame = {x = startPos.x, y = startPos.y, w = 1200, h = 200}
+    })
     canvas:show()
+    canvas:level(hs.canvas.windowLevels.status)
 
     local startTime = hs.timer.secondsSinceEpoch()
     local timer
-    
-    timer = hs.timer.doEvery(1/FPS, function()
+    timer = hs.timer.doEvery(1/60, function()
         local now = hs.timer.secondsSinceEpoch()
         local elapsed = now - startTime
         local progress = elapsed / duration
-        
         if progress >= 1 then
             timer:stop()
             canvas:delete()
             return
         end
-        
         local currentX = startPos.x + (endPos.x - startPos.x) * progress
         local currentY = startPos.y + (endPos.y - startPos.y) * progress
-        
-        canvas:elementFrame(1, {x = currentX, y = currentY, w = 600, h = 100})
+        canvas:elementFrame(1, {x = currentX, y = currentY, w = 1200, h = 200})
     end)
 end
 
--- --- Event Handlers ---
-
 function alerts.flyAeroplane(message)
     local screen = hs.screen.mainScreen():frame()
-    local startPos = {x = -600, y = screen.h / 3}
-    local endPos = {x = screen.w, y = screen.h / 3}
-    alerts.animate("✈️", message, startPos, endPos, 4)
+    alerts.animate("✈️", message, {x = -1200, y = screen.h * 0.3}, {x = screen.w, y = screen.h * 0.3}, 5)
+    hs.notify.new({title="New Commit", informativeText=message}):send()
 end
 
 function alerts.launchRocket()
     local screen = hs.screen.mainScreen():frame()
-    local startPos = {x = screen.w / 2 - 300, y = screen.h}
-    local endPos = {x = screen.w / 2 - 300, y = -100}
-    alerts.animate("🚀", "New Pull Request!", startPos, endPos, 3)
+    alerts.animate("🚀", "New PR!", {x = (screen.w / 2) - 600, y = screen.h}, {x = (screen.w / 2) - 600, y = -200}, 4)
+    hs.notify.new({title="GitHub", informativeText="New Pull Request!"}):send()
 end
 
 function alerts.descendParachute()
     local screen = hs.screen.mainScreen():frame()
-    local startPos = {x = screen.w / 2 - 300, y = -100}
-    local endPos = {x = screen.w / 2 - 300, y = screen.h}
-    alerts.animate("🪂", "CI Failed!", startPos, endPos, 8)
+    alerts.animate("🪂", "CI Failed!", {x = (screen.w / 2) - 600, y = -200}, {x = (screen.w / 2) - 600, y = screen.h}, 10)
+    hs.notify.new({title="GitHub", informativeText="CI Check Failed!"}):send()
 end
 
--- --- HTTP Server ---
-
-local function handleRequest(method, path, headers, body)
-    print("Received " .. method .. " request to " .. path)
-    return "OK", 200
-end
-
-alerts.server = hs.httpserver.new(false, "0.0.0.0")
-alerts.server:setPort(PORT)
-alerts.server:setCallback(function(method, path, headers, body)
-    return "OK", 200
+-- Register URL handler
+hs.urlevent.bind("fly", function(eventName, params)
+    alerts.flyAeroplane(params.msg or "New Commit")
+end)
+hs.urlevent.bind("rocket", function(eventName, params)
+    alerts.launchRocket()
+end)
+hs.urlevent.bind("parachute", function(eventName, params)
+    alerts.descendParachute()
 end)
 
-
-alerts.server:start()
-
-print("GitHub Visual Alerts server started on port " .. PORT)
-hs.notify.new({title="GitHub Visual Alerts", informativeText="Server started on port " .. PORT}):send()
-
-return alerts
+hs.notify.new({title="Hammerspoon", informativeText="Visual Alerts Ready (URL Mode)"}):send()
