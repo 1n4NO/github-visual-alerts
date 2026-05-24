@@ -1,20 +1,22 @@
--- GitHub Visual Alerts via URL Scheme
--- This bypasses the buggy hs.httpserver
+-- GitHub Visual Alerts v2.0
+require("hs.canvas")
 
 _G.github_alerts = _G.github_alerts or {}
 local alerts = _G.github_alerts
 
 function alerts.animate(emoji, text, startPos, endPos, duration)
-    local screen = hs.screen.mainScreen():frame()
-    local canvas = hs.canvas.new(screen)
-    canvas:insert({
+    local canvas = hs.canvas.new({x = startPos.x, y = startPos.y, w = 1200, h = 200})
+    if not canvas then return end
+
+    canvas[1] = {
         type = "text",
         text = emoji .. " " .. (text or ""),
         textSize = 80,
-        textColor = {red = 1, green = 1, blue = 1, alpha = 1},
+        textColor = {white = 1},
         textAlignment = "center",
-        frame = {x = startPos.x, y = startPos.y, w = 1200, h = 200}
-    })
+        frame = {x = 0, y = 0, w = 1200, h = 200}
+    }
+    
     canvas:show()
     canvas:level(hs.canvas.windowLevels.status)
 
@@ -31,7 +33,7 @@ function alerts.animate(emoji, text, startPos, endPos, duration)
         end
         local currentX = startPos.x + (endPos.x - startPos.x) * progress
         local currentY = startPos.y + (endPos.y - startPos.y) * progress
-        canvas:elementFrame(1, {x = currentX, y = currentY, w = 1200, h = 200})
+        canvas:topLeft({x = currentX, y = currentY})
     end)
 end
 
@@ -64,4 +66,4 @@ hs.urlevent.bind("parachute", function(eventName, params)
     alerts.descendParachute()
 end)
 
-hs.notify.new({title="Hammerspoon", informativeText="Visual Alerts Ready (URL Mode)"}):send()
+hs.notify.new({title="Hammerspoon", informativeText="Visual Alerts v2.0 Ready"}):send()
